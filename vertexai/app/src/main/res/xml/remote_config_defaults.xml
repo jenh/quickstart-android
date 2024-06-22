@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<defaults>
+  <entry>
+    <key>generation_config</key>
+    <value>{"temperature":0.75,"topP":0.5,"topK":30,"maxOutputTokens":512,"stopSequences":["in conclusion","-----","do you need"]}</value>
+  </entry>
+  <entry>
+    <key>model_name</key>
+    <value>gemini-1.5-flash</value>
+  </entry>
+</defaults>

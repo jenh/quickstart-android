@@ -16,6 +16,8 @@
 
 package com.google.firebase.quickstart.vertexai
 
+import android.content.ContentValues.TAG
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.CreationExtras
@@ -30,23 +32,48 @@ import com.google.firebase.vertexai.type.defineFunction
 import com.google.firebase.vertexai.type.generationConfig
 import com.google.firebase.vertexai.vertexAI
 import org.json.JSONObject
+import com.google.firebase.remoteconfig.FirebaseRemoteConfig
+import org.json.JSONException
 
 val GenerativeViewModelFactory = object : ViewModelProvider.Factory {
+
     override fun <T : ViewModel> create(
         viewModelClass: Class<T>,
         extras: CreationExtras
     ): T {
-        val config = generationConfig {
-            temperature = 0.7f
-        }
 
         return with(viewModelClass) {
+            remoteConfig = FirebaseRemoteConfig.getInstance();
+            val modelNameFlash = remoteConfig.getString("model_name");
+            val generationConfigString = remoteConfig.getString("generation_config")
+            val config = try {
+                val jsonObject = JSONObject(generationConfigString) // Parse the JSON string
+
+                generationConfig {
+                    temperature = jsonObject.getDouble("temperature").toFloat()
+                    topP = jsonObject.getDouble("topP").toFloat()
+                    topK = jsonObject.getInt("topK")
+                    maxOutputTokens = jsonObject.getInt("maxOutputTokens")
+                    stopSequences = jsonObject.getJSONArray("stopSequences").let { jsonArray ->
+                        List(jsonArray.length()) { i -> jsonArray.getString(i) }  // Get list from JSONArray
+                    }
+                }
+            } catch (e: JSONException) {
+                Log.e("GenerativeAIModelViewFactory", "Error parsing generationConfig JSON: ${e.message}", e)
+                generationConfig {} // Create a default configuration
+            }
+
+
+            Log.d("MainActivity", "got model name in T as $modelNameFlash and config as ${config.stopSequences} ");
+
             when {
+
                 isAssignableFrom(SummarizeViewModel::class.java) -> {
+
                     // Initialize a GenerativeModel with the `gemini-flash` AI model
                     // for text generation
                     val generativeModel = Firebase.vertexAI.generativeModel(
-                        modelName = "gemini-1.5-flash-preview-0514",
+                        modelName = modelNameFlash,
                         generationConfig = config
                     )
                     SummarizeViewModel(generativeModel)
@@ -56,16 +83,18 @@ val GenerativeViewModelFactory = object : ViewModelProvider.Factory {
                     // Initialize a GenerativeModel with the `gemini-flash` AI model
                     // for multimodal text generation
                     val generativeModel = Firebase.vertexAI.generativeModel(
-                        modelName = "gemini-1.5-flash-preview-0514",
+                        modelName = modelNameFlash,
                         generationConfig = config
                     )
                     PhotoReasoningViewModel(generativeModel)
                 }
 
                 isAssignableFrom(ChatViewModel::class.java) -> {
+                    Log.d("MainActivity", "got model name in chat as $modelNameFlash and config as $config ");
+
                     // Initialize a GenerativeModel with the `gemini-flash` AI model for chat
                     val generativeModel = Firebase.vertexAI.generativeModel(
-                        modelName = "gemini-1.5-flash-preview-0514",
+                        modelName = modelNameFlash,
                         generationConfig = config
                     )
                     ChatViewModel(generativeModel)
@@ -90,7 +119,7 @@ val GenerativeViewModelFactory = object : ViewModelProvider.Factory {
                     // Initialize a GenerativeModel with the `gemini-pro` AI model for function calling chat
                     val generativeModel = Firebase.vertexAI.generativeModel(
                         modelName = "gemini-1.5-pro-preview-0514",
-                        generationConfig = config,
+                        //   generationConfig = config,
                         tools = tools
                     )
                     FunctionsChatViewModel(generativeModel)
